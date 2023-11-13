@@ -1,0 +1,101 @@
+---
+title: "rsibal_PeerCommentary_svee_05"
+author: "Samantha Vee"
+date: "2023-11-12"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+---
+# Preliminaries
+```{r prelim}
+# load packages
+library(curl)
+
+# load data
+f <- curl("https://raw.githubusercontent.com/fuzzyatelin/fuzzyatelin.github.io/master/AN588_Fall23/KamilarAndCooperData.csv")
+d <- read.csv(f, header = TRUE, sep = ",", stringsAsFactors = FALSE)
+head(d)
+```
+
+# Question 1
+**Using the “KamilarAndCooperData.csv” dataset, run a linear regression looking at log(HomeRange_km2) in relation to log(Body_mass_female_mean) and report your β coeffiecients (slope and intercept).** 
+
+*Ritika's Comments: Great job! Your code is very easy to follow, I think this section is perfect. If you wanted, you could do: lm(data = d, log(HomeRange_km2) ~ log(Body_mass_female_mean)) instead of making two log variables but totally not needed!*
+
+The model summary tells us the slope is 1.03643 and the intercept is -9.441231
+```{r q1 model}
+# log transforming data
+log_homerange <- log(d$HomeRange_km2)
+log_femalebodymass <- log(d$Body_mass_female_mean)
+
+# creating the model
+model <- lm(data = d, log_homerange ~ log_femalebodymass)
+summary(model)
+```
+
+# Question 2
+**Then, use bootstrapping to sample from your data 1000 times with replacement, each time fitting the same model and calculating the same coefficients. This generates a sampling distribution for each β coefficient**
+
+*Ritika's Comments: Beautiful! Very clean code! I think we did this section almost exactly the same, though I think yours in cleaner than mine--great job! I did not know you could use the sample() function in this way*
+
+```{r q2 sample dataframe}
+sample_intercept <- NULL
+sample_slope <- NULL
+
+for (i in 1:1000) {
+  d_boots = d[sample(1:nrow(d), nrow(d), replace = TRUE), ] #create resampled dataset w/ replacement
+  d_boots <- lm(log(HomeRange_km2) ~ log(Body_mass_female_mean), data = d_boots) 
+  sample_intercept <- c(sample_intercept, d_boots$coefficients[1])
+  sample_slope <- c(sample_slope, d_boots$coefficients[2])
+}
+```
+
+**Estimate the standard error for each of your β coefficients as the standard deviation of the sampling distribution from your bootstrap and determine the 95% CI for each of your β coefficients based on the appropriate quantiles from your sampling distribution.**
+
+*Ritika's Comments: Again I think we did this section almost completely the same. I like the way you organised your list--the output was very nice! couple of suggestions (just for aesthetics): I think your spacing on intercept_boots got alittle messed up so you may want to remove the extra spaces! And you used as.numeric() in intercept_boots for the lower_intercept but I dont think you need this. Lastly, instead of doing "boots <- cbind(slope_boots, intercept_boots); boots" you could do  (boots <- cbind(slope_boots, intercept_boots)) (put it in parenthesis) and it will print the value!* 
+
+```{r q2a}
+# calculations for slope
+mean_slope <- mean(sample_slope)
+sd_slope <- sd(sample_slope) # estimating as SE
+lower_slope <- mean_slope - qnorm(1 - 0.05/2) * sd_slope
+upper_slope <- mean_slope + qnorm(1 - 0.05/2) * sd_slope
+slope_boots <- list(Mean = mean_slope, SD = sd_slope, UpperCI = upper_slope, LowerCI = lower_slope)
+
+# calculations for intercept
+mean_intercept <- mean(sample_intercept)
+sd_intercept <- sd(sample_intercept) # estimating as SE
+lower_intercept <- mean_intercept - qnorm(1 - 0.05/2) * sd_intercept
+upper_intercept <- mean_intercept + qnorm(1 - 0.05/2) * sd_intercept
+intercept_boots <- list(Mean = mean_intercept, SD = sd_intercept, 
+                        UpperCI = upper_intercept, LowerCI = as.numeric(lower_intercept))
+
+# using cbind to put everything together
+boots <- cbind(slope_boots, intercept_boots); boots
+```
+
+
+**How does the former compare to the SE estimated from your entire dataset using the formula for standard error implemented in lm()?** <br>
+
+For the original model, the intercept's SE was 0.6729346 and the slope's SE was 0.08487709 <br>
+The current model's intercept SE (subbing SD) is 0.5877949 and the slope's SE is 0.07621156 <br>
+The SE values from the lm() function are a bit higher.
+
+*Ritika's Comments: Great explanation! I liked that you printed the values again here for the reader* 
+
+**How does the latter compare to the 95% CI estimated from your entire dataset?** <br>
+I used the confint() function to estimate the 95% CI from the original model
+
+*Ritika's Comments: Looks great! I did the same thing* 
+```{r q2c}
+ci_model <- confint(model, level = 0.95); ci_model
+```
+
+The CIs look pretty similar.
+
+
+*Ritika's Comments: Great job Sam!*
+
+# Challenges Faced
+I thought this assignment was relatively straightforward! I spent the most time on the first part of question 2, where we had to use bootstrapping. I used code from Homework #3 solutions as a reminder for how to structure a for loop that does sampling with replacement. It took a lot of trial and error to figure out how to get the values for each beta coefficient into their own vector.
